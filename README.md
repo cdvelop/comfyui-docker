@@ -19,15 +19,27 @@ docker run \
     --restart unless-stopped \
     --env USER_ID="$(id -u)" \
     --env GROUP_ID="$(id -g)" \
-    --volume "<path/to/models/folder>:/opt/comfyui/models:rw" \
-    --volume "<path/to/custom/nodes/folder>:/opt/comfyui/custom_nodes:rw" \
+    --volume "$DOCKER_MODELS/comfyui_models:/opt/comfyui/models:rw" \
+    --volume "$DOCKER_VOLUMES/comfyui_volumes:/opt/comfyui/custom_nodes:rw" \
     --publish 8188:8188 \
     --runtime nvidia \
     --gpus all \
     ghcr.io/lecode-official/comfyui-docker:latest
 ```
 
-Please note, that the `<path/to/models/folder>` and `<path/to/custom/nodes/folder>` must be replaced with paths to directories on the host system where the models and custom nodes will be stored, e.g., `$HOME/.comfyui/models` and `$HOME/.comfyui/custom-nodes`, which can be created like so: `mkdir -p $HOME/.comfyui/{models,custom-nodes}`.
+
+**Nota:** Se recomienda definir las siguientes variables de entorno en tu `~/.bashrc` para facilitar la gestión de rutas:
+
+```sh
+export DOCKER_MODELS="$HOME/Dev/Docker/models"
+export DOCKER_VOLUMES="$HOME/Dev/Docker/Volumes"
+```
+
+Luego crea las carpetas necesarias para ComfyUI:
+
+```sh
+mkdir -p "$DOCKER_MODELS/comfyui_models" "$DOCKER_VOLUMES/comfyui_volumes"
+```
 
 The `--detach` flag causes the container to run in the background and `--restart unless-stopped` configures the Docker Engine to automatically restart the container if it stopped itself, experienced an error, or the computer was shutdown, unless you explicitly stopped the container using `docker stop`. This means that ComfyUI will be automatically started in the background when you boot your computer. The two `--env` arguments inject the user ID and group ID of the current host user into the container. During startup, a user with the same user ID and group ID will be created, and ComfyUI will be run using this user. This ensures that files written to the volumes (e.g., models and custom nodes installed with the ComfyUI Manager) will be owned by the host system's user. Normally, the user inside the container is `root`, which means that the files that are written from the container to the host system are also owned by `root`. If you have run ComfyUI Docker without setting the environment variables, then you may have to change the owner of the files in the models and custom nodes directories: `sudo chown -r "$(id -un):$(id -gn)" <path/to/models/folder> <path/to/custom/nodes/folder>`. The `--runtime nvidia` and `--gpus all` arguments enable ComfyUI to access the GPUs of your host system. If you do not want to expose all GPUs, you can specify the desired GPU index or ID instead.
 
@@ -60,8 +72,8 @@ docker run \
     --restart unless-stopped \
     --env USER_ID="$(id -u)" \
     --env GROUP_ID="$(id -g)" \
-    --volume "<path/to/models/folder>:/opt/comfyui/models:rw" \
-    --volume "<path/to/custom/nodes/folder>:/opt/comfyui/custom_nodes:rw" \
+    --volume "$DOCKER_MODELS/comfyui_models:/opt/comfyui/models:rw" \
+    --volume "$DOCKER_VOLUMES/comfyui_volumes:/opt/comfyui/custom_nodes:rw" \
     --publish 8188:8188 \
     --runtime nvidia \
     --gpus all \
@@ -77,21 +89,25 @@ git clone https://github.com/lecode-official/comfyui-docker.git
 docker build --tag lecode/comfyui-docker:latest source
 ```
 
-Now, a container can be started like so:
 
-```shell
-docker run \
-    --name comfyui \
-    --detach \
-    --restart unless-stopped \
-    --env USER_ID="$(id -u)" \
-    --env GROUP_ID="$(id -g)" \
-    --volume "<path/to/models/folder>:/opt/comfyui/models:rw" \
-    --volume "<path/to/custom/nodes/folder>:/opt/comfyui/custom_nodes:rw" \
-    --publish 8188:8188 \
-    --runtime nvidia \
-    --gpus all \
-    lecode/comfyui-docker:latest
+
+## requisito previo pra docker y nvidia
+NVIDIA Container Toolkit siguiendo la guía oficial:
+https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+
+
+# para iniciar:
+```bash
+docker run --rm -it \
+  --gpus all \
+  --runtime=nvidia \
+  --env USER_ID=$(id -u) \
+  --env GROUP_ID=$(id -g) \
+  --volume "$DOCKER_MODELS/comfyui_models:/opt/comfyui/models:rw" \
+  --volume "$DOCKER_VOLUMES/comfyui_volumes:/opt/comfyui/custom_nodes:rw" \
+  -p 8188:8188 \
+  --name comfyui \
+  comfyui:local
 ```
 
 ## License

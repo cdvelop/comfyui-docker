@@ -1,0 +1,18 @@
+services:
+  comfyui:
+    image: comfyui:local
+    container_name: comfyui
+    runtime: nvidia
+    environment:
+      - USER_ID=${USER_ID:-1000}
+      - GROUP_ID=${GROUP_ID:-1000}
+    volumes:
+      - ${DOCKER_MODELS}/comfyui_models:/opt/comfyui/models:rw
+      - ${DOCKER_VOLUMES}/comfyui_volumes:/opt/comfyui/custom_nodes:rw
+    ports:
+      - "8188:8188"
+    stdin_open: true
+    tty: true
+    deploy:
+      restart_policy:
+        condition: unless-stopped
