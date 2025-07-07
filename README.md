@@ -1,6 +1,19 @@
 # ComfyUI Docker
 
-This is a Docker image for [ComfyUI](https://www.comfy.org/), which makes it extremely easy to run ComfyUI on Linux and Windows WSL2. The image also includes the [ComfyUI Manager](https://github.com/ltdrdata/ComfyUI-Managergithub ) extension.
+This is a Docker image for [ComfyUI](https://www.comfy.org/), which makes it extremely easy to run # Verificar y solucionar errores de memoria (OOM Killed)
+
+Si al generar una imagen el contenedor se reinicia o ves mensajes como `Killed` o `exited with code 0`, probablemente tu sistema se está quedando sin memoria RAM o VRAM y el proceso es terminado por el sistema operativo (OOM: Out Of Memory).
+
+## Recomendaciones para RTX 3060 (6GB VRAM)
+
+⚠️ **IMPORTANTE**: El modelo FLUX Dev 1 es extremadamente demandante y puede no funcionar correctamente en GPUs con menos de 8GB de VRAM. Para RTX 3060:
+
+1. **Usa modelos más ligeros** como SDXL, SD 1.5, o versiones cuantizadas de FLUX
+2. **Reduce la resolución** de las imágenes generadas (ej: 512x512 en lugar de 1024x1024)
+3. **Activa la optimización de memoria** en ComfyUI
+4. **Aumenta significativamente el swap** de tu sistema
+
+## Pasos para diagnosticar y solucionar:UI on Linux and Windows WSL2. The image also includes the [ComfyUI Manager](https://github.com/ltdrdata/ComfyUI-Managergithub ) extension.
 
 ## Getting Started
 
@@ -109,6 +122,201 @@ docker run --rm -it \
   --name comfyui \
   comfyui:local
 ```
+
+# iniciar con docker compose
+```bash
+docker compose up -d
+```
+
+# Verificar y solucionar errores de memoria (OOM Killed)
+
+Si al generar una imagen el contenedor se reinicia o ves mensajes como `Killed` o `exited with code 0`, probablemente tu sistema se está quedando sin memoria RAM o VRAM y el proceso es terminado por el sistema operativo (OOM: Out Of Memory).
+
+**Pasos para diagnosticar y solucionar:**
+
+1. **Verifica el uso de RAM y SWAP en tu sistema host:**
+   ```bash
+   free -h
+   ```
+   y para la GPU:
+   ```bash
+   watch -n 1 nvidia-smi
+   ```
+
+2. **Aumenta el swap** de tu sistema si tienes poca RAM.
+   Puedes crear un archivo de swap de 16GB ejecutando este script:
+   ```bash
+   #!/bin/bash
+   # Script para crear y activar un swapfile de 16GB (recomendado para FLUX)
+   sudo swapoff -a
+   sudo dd if=/dev/zero of=/swapfile bs=1G count=16
+   sudo mkswap /swapfile
+   sudo chmod 600 /swapfile
+   sudo swapon /swapfile
+   free -h
+   ```
+   Puedes ajustar el tamaño cambiando el valor de `count=16` (mínimo recomendado para FLUX: 16GB).
+
+   Para que el swap se active automáticamente al reiniciar, agrega esta línea a tu `/etc/fstab`:
+   ```
+   /swapfile none swap sw 0 0
+   ```
+   ```
+
+3. **Asegúrate de no tener límites de memoria en tu docker-compose.yml.** Si tienes algo como:
+   ```yaml
+   deploy:
+     resources:
+       limits:
+         memory: 4G
+   ```
+   elimínalo o súbelo.
+
+4. **Prueba con un modelo más pequeño** para ver si el problema es por falta de recursos.
+
+5. **Revisa los logs del sistema** (dmesg) para ver si hay mensajes de OOM killer:
+   ```bash
+   dmesg | grep -i kill
+   ```
+
+6. **Ver logs del contenedor:**
+   ```bash
+   docker compose logs -f comfyui
+   ```
+
+Si el problema persiste, revisa la configuración de tu hardware o consulta la documentación oficial de Docker y ComfyUI.
+
+Para ver los logs del contenedor comfyui-docker, ejecuta este comando en tu terminal:
+
+```bash
+docker compose logs -f comfyui
+```
+
+Esto mostrará los logs en tiempo real del servicio comfyui definido en tu docker-compose.yml. Si quieres ver solo los últimos logs sin seguir en tiempo real, puedes omitir el `-f`:
+
+```bash
+docker compose logs comfyui
+```
+
+Si usaste solo `docker run` (sin compose), sería:
+
+```bash
+docker logs -f comfyui
+```
+
+## Tutorial de uso de ComfyUI
+[![Alt text](https://img.youtube.com/vi/G-SEKbx6Imk/0.jpg)](https://www.youtube.com/watch?v=G-SEKbx6Imk)
+
+
+## para detener el contenedor
+```bash
+docker compose stop comfyui
+```
+## todos los contenedores
+```bash
+docker compose stop
+```
+
+## Scripts de utilidad incluidos
+
+Para ayudarte a gestionar ComfyUI y diagnosticar problemas, se incluyen los siguientes scripts:
+
+### Aumentar SWAP (recomendado antes de usar FLUX)
+```bash
+./increase_swap.sh
+```
+
+### Configurar modo Low VRAM para RTX 3060
+```bash
+./setup_low_vram.sh
+```
+
+### Monitorear recursos del sistema
+```bash
+./monitor_resources.sh
+```
+
+### Comandos útiles para diagnosticar problemas
+
+**Ver uso de GPU en tiempo real:**
+```bash
+watch -n 1 nvidia-smi
+```
+
+**Ver logs de ComfyUI en tiempo real:**
+```bash
+docker logs -f comfyui
+```
+
+**Ver estadísticas de Docker:**
+```bash
+docker stats
+```
+
+**Verificar procesos que están usando la GPU:**
+```bash
+nvidia-smi pmon -i 0
+```
+
+## Modelos recomendados para RTX 3060
+
+Dado que FLUX Dev 1 requiere mucha VRAM, para tu RTX 3060 se recomienda usar:
+
+1. **SDXL** - Excelente calidad, menor uso de VRAM
+2. **SD 1.5** - Muy estable y rápido
+3. **FLUX Schnell** - Versión optimizada de FLUX
+4. **Modelos cuantizados** (fp8, fp16) que usan menos memoria
+
+## Configuraciones recomendadas en ComfyUI
+
+Para optimizar el rendimiento en tu RTX 3060:
+
+1. **Usa CFG Scale más bajo** (6-8 en lugar de 10-15)
+2. **Reduce los pasos** (15-20 pasos en lugar de 30-50)
+3. **Resolución moderada** (768x768 o 512x768 en lugar de 1024x1024)
+4. **Activa "Low VRAM" mode** en configuraciones de ComfyUI
+
+## Configuración específica para FLUX en RTX 3060
+
+Si experimentas reinicios al cargar modelos FLUX, sigue estos pasos en orden:
+
+### 1. Ejecuta el setup automático
+```bash
+./setup_low_vram.sh
+```
+
+### 2. Configuraciones adicionales en ComfyUI Web UI
+Una vez que ComfyUI esté ejecutándose, ve a la interfaz web (http://localhost:8188) y:
+
+1. **Click en el ícono de configuración** (⚙️) en la esquina superior derecha
+2. **Habilita las siguientes opciones:**
+   - ✅ `Enable Dev mode Options`
+   - ✅ `Use CPU for VAE if not enough VRAM`
+   - ✅ `Disable VRAM auto detection`
+   - ✅ `Free VRAM when not in use`
+   - ✅ `Lowvram` o `CPU offload` (si está disponible)
+
+### 3. Parámetros recomendados para generar
+- **Resolución**: 768x768 (máximo 1024x768)
+- **CFG Scale**: 3.5-7 (en lugar de 10-15)
+- **Steps**: 20-28 (en lugar de 50+)
+- **Batch size**: 1
+- **Considera FLUX Schnell** en lugar de FLUX Dev (más rápido y eficiente)
+
+### 4. Si el problema persiste
+Si ComfyUI sigue reiniciándose con FLUX Dev:
+
+```bash
+# Aumenta el swap a 20GB o más
+./increase_swap.sh  # Elige 20 cuando pregunte
+
+# Verifica que no hay procesos usando VRAM
+nvidia-smi
+
+# Reinicia ComfyUI
+docker compose restart
+```
+
 
 ## License
 

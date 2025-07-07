@@ -6,6 +6,10 @@ services:
     environment:
       - USER_ID=${USER_ID:-1000}
       - GROUP_ID=${GROUP_ID:-1000}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+      - CUDA_LAUNCH_BLOCKING=1
     volumes:
       - ${DOCKER_MODELS}/comfyui_models:/opt/comfyui/models:rw
       - ${DOCKER_VOLUMES}/comfyui_volumes:/opt/comfyui/custom_nodes:rw
@@ -13,6 +17,16 @@ services:
       - "8188:8188"
     stdin_open: true
     tty: true
+    shm_size: '4gb'
+    ulimits:
+      memlock: -1
+      stack: 67108864
     deploy:
       restart_policy:
         condition: unless-stopped
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
